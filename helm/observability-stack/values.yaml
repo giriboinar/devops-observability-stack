@@ -1,0 +1,32 @@
+# Default values for observability-stack.
+replicaCount: 2
+
+app:
+  image:
+    repository: giriboinar/demo-app
+    tag: "latest"
+    pullPolicy: IfNotPresent
+  service:
+    port: 8000
+
+prometheus:
+  image: prom/prometheus:v3.4.1
+  retention: 7d
+  service:
+    port: 9090
+
+alertmanager:
+  image: prom/alertmanager:v0.28.1
+  service:
+    port: 9093
+
+grafana:
+  image: grafana/grafana:12.1.0
+  adminUser: admin
+  # Set via --set grafana.adminPassword=... or a sealed secret; never commit.
+  adminPassword: "changeme"
+  service:
+    port: 3000
+
+nodeExporter:
+  image: prom/node-exporter:v1.9.1

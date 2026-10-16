@@ -1,0 +1,72 @@
+# Alertmanager ConfigMap + Deployment + Service.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Release.Name }}-alertmanager-config
+  labels:
+    {{- include "obs.labels" . | nindent 4 }}
+data:
+  alertmanager.yml: |
+    global:
+      resolve_timeout: 5m
+    route:
+      receiver: dev-null
+      group_by: ["alertname"]
+      group_wait: 30s
+      group_interval: 5m
+      repeat_interval: 4h
+    receivers:
+      - name: dev-null
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Release.Name }}-alertmanager
+  labels:
+    {{- include "obs.labels" . | nindent 4 }}
+    app.kubernetes.io/component: alertmanager
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/component: alertmanager
+  template:
+    metadata:
+      labels:
+        {{- include "obs.labels" . | nindent 8 }}
+        app.kubernetes.io/component: alertmanager
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65534
+        seccompProfile: {type: RuntimeDefault}
+      containers:
+        - name: alertmanager
+          image: {{ .Values.alertmanager.image }}
+          args: ["--config.file=/etc/alertmanager/alertmanager.yml"]
+          ports:
+            - containerPort: 9093
+          volumeMounts:
+            - name: config
+              mountPath: /etc/alertmanager
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities: {drop: ["ALL"]}
+      volumes:
+        - name: config
+          configMap:
+            name: {{ .Release.Name }}-alertmanager-config
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Release.Name }}-alertmanager
+  labels:
+    {{- include "obs.labels" . | nindent 4 }}
+spec:
+  selector:
+    app.kubernetes.io/component: alertmanager
+  ports:
+    - port: {{ .Values.alertmanager.service.port }}
+      targetPort: 9093
+      name: http

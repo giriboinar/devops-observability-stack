@@ -1,0 +1,24 @@
+# Alertmanager routing. Webhook receiver is a placeholder on purpose:
+# point it at Slack/PagerDuty/Opsgenie when you wire up notifications.
+global:
+  resolve_timeout: 5m
+
+route:
+  receiver: "dev-null"
+  group_by: ["alertname"]
+  group_wait: 30s
+  group_interval: 5m
+  repeat_interval: 4h
+  routes:
+    - matchers:
+        - severity = "critical"
+      receiver: "oncall-webhook"
+      continue: true
+
+receivers:
+  - name: "dev-null"
+
+  - name: "oncall-webhook"
+    webhook_configs:
+      - url: "http://localhost:5001/alerts" # replace with your on-call webhook
+        send_resolved: true
