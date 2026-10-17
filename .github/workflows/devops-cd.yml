@@ -1,0 +1,31 @@
+# CD (manual): redeploy the Compose stack on the EC2 observability host.
+# Human-gated via workflow_dispatch. Needs repo secrets:
+# EC2_HOST, EC2_USER, EC2_SSH_KEY.
+name: cd
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    name: Deploy to EC2
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Deploy over SSH
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USER }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          script: |
+            set -euo pipefail
+            cd /opt/observability/stack
+            git pull --ff-only
+            docker compose pull app || true
+            docker compose up -d --build
+            sleep 10
+            curl -fsS http://127.0.0.1:8000/healthz
+            curl -fsS http://127.0.0.1:9090/-/healthy
