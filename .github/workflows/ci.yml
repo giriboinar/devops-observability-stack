@@ -85,21 +85,15 @@ jobs:
           load: true
           tags: demo-app:ci
       - name: Trivy image scan (fail on HIGH/CRITICAL)
-        uses: aquasecurity/trivy-action@v0.36.0
-        with:
-          image-ref: demo-app:ci
-          format: sarif
-          output: trivy-results.sarif
-          severity: HIGH,CRITICAL
-          exit-code: "1"
-      - name: Trivy table report (runs only if the scan fails, so the log shows the CVEs)
-        if: failure()
+        # NOTE: table format (not SARIF) so the log itself shows exactly what
+        # tripped the gate — the SARIF file was never uploaded anywhere, and a
+        # bare exit-code-1 with no visible findings is undebuggable (2026-10-17).
         uses: aquasecurity/trivy-action@v0.36.0
         with:
           image-ref: demo-app:ci
           format: table
           severity: HIGH,CRITICAL
-          exit-code: "0"
+          exit-code: "1"
       - name: Check Docker Hub secrets
         id: secrets
         run: |
