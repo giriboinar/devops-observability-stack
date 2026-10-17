@@ -1,20 +1,20 @@
 # syntax=docker/dockerfile:1
 # Multi-stage build for the instrumented demo API.
-# Base image pinned and verified on Docker Hub (python:3.12-slim-trixie).
-# Trixie (Debian 13) replaced bookworm on 2026-10-17: the bookworm base carried
-# dozens of HIGH/CRITICAL CVEs with no fixed version available in Debian 12.
+# Alpine base (python:3.12-alpine3.24): minimal OS surface. Debian slim carried
+# dozens of HIGH/CRITICAL CVEs with no fixed version available (bookworm: 63,
+# trixie: 44), so we moved to Alpine — see CI history 2026-10-17.
 
-FROM python:3.12-slim-trixie AS builder
+FROM python:3.12-alpine3.24 AS builder
 WORKDIR /build
 COPY app/requirements.txt .
 # Install runtime-only deps into a prefix; test-only packages stay out of the image.
 RUN pip install --no-cache-dir --prefix=/install \
     fastapi==0.143.1 uvicorn==0.34.3 prometheus-client==0.21.1 pydantic==2.11.7
 
-FROM python:3.12-slim-trixie AS runtime
-# Pull the latest Debian security updates: the base image tag is rebuilt
-# periodically and can lag upstream fixes by days (Trivy gates on HIGH/CRITICAL).
-RUN apt-get update && apt-get upgrade -y && rm -rf /var/lib/apt/lists/*
+FROM python:3.12-alpine3.24 AS runtime
+# Pull the latest Alpine security updates (the base is rebuilt frequently,
+# but this guards against lag the same way apt-get upgrade did on Debian).
+RUN apk upgrade --no-cache
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     PATH=/usr/local/bin:$PATH
@@ -23,7 +23,7 @@ WORKDIR /srv/app
 COPY --from=builder /install /usr/local
 COPY app/ ./app/
 
-RUN groupadd -r appuser && useradd -r -g appuser -d /srv/app appuser \
+RUN addgroup -S appuser && adduser -S -G appuser -h /srv/app appuser \
     && chown -R appuser:appuser /srv/app
 USER appuser
 
