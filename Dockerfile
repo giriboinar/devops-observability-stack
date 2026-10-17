@@ -10,6 +10,9 @@ RUN pip install --no-cache-dir --prefix=/install \
     fastapi==0.143.1 uvicorn==0.34.3 prometheus-client==0.21.1 pydantic==2.11.7
 
 FROM python:3.12-slim-bookworm AS runtime
+# Pull the latest Debian security updates: the base image tag is rebuilt
+# periodically and can lag upstream fixes by days (Trivy gates on HIGH/CRITICAL).
+RUN apt-get update && apt-get upgrade -y && rm -rf /var/lib/apt/lists/*
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     PATH=/usr/local/bin:$PATH
