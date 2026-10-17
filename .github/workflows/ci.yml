@@ -92,6 +92,14 @@ jobs:
           output: trivy-results.sarif
           severity: HIGH,CRITICAL
           exit-code: "1"
+      - name: Trivy table report (runs only if the scan fails, so the log shows the CVEs)
+        if: failure()
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          image-ref: demo-app:ci
+          format: table
+          severity: HIGH,CRITICAL
+          exit-code: "0"
       - name: Check Docker Hub secrets
         id: secrets
         run: |
