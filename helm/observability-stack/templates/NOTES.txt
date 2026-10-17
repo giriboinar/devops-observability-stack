@@ -1,0 +1,11 @@
+observability-stack deployed.
+
+- demo-app metrics:   kubectl port-forward svc/{{ .Release.Name }}-demo-app {{ .Values.app.service.port }}
+- Prometheus UI:      kubectl port-forward svc/{{ .Release.Name }}-prometheus {{ .Values.prometheus.service.port }}
+- Alertmanager UI:    kubectl port-forward svc/{{ .Release.Name }}-alertmanager {{ .Values.alertmanager.service.port }}
+- Grafana UI:         kubectl port-forward svc/{{ .Release.Name }}-grafana {{ .Values.grafana.service.port }}
+  (login: {{ .Values.grafana.adminUser }} / the password you set)
+
+Generate demo traffic:
+  kubectl run -it --rm curl --image=curlimages/curl:8.12.1 --restart=Never -- \
+    sh -c 'while true; do curl -s http://{{ .Release.Name }}-demo-app:{{ .Values.app.service.port }}/api/ping >/dev/null; sleep 1; done'

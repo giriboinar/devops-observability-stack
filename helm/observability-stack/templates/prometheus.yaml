@@ -1,0 +1,106 @@
+# Prometheus ConfigMap + Deployment + Service (K8s flavor of the Compose stack).
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Release.Name }}-prometheus-config
+  labels:
+    {{- include "obs.labels" . | nindent 4 }}
+data:
+  prometheus.yml: |
+    global:
+      scrape_interval: 15s
+      evaluation_interval: 15s
+    alerting:
+      alertmanagers:
+        - static_configs:
+            - targets: ["{{ .Release.Name }}-alertmanager:9093"]
+    rule_files:
+      - /etc/prometheus/alerts.yml
+    scrape_configs:
+      - job_name: demo-app
+        kubernetes_sd_configs:
+          - role: pod
+        relabel_configs:
+          - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_scrape]
+            action: keep
+            regex: "true"
+          - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_path]
+            action: replace
+            target_label: __metrics_path__
+            regex: (.+)
+  alerts.yml: |
+    groups:
+      - name: demo-app
+        interval: 30s
+        rules:
+          - alert: AppDown
+            expr: up{job="demo-app"} == 0
+            for: 1m
+            labels: {severity: critical}
+            annotations:
+              summary: "demo-app is down"
+          - alert: HighErrorRate
+            expr: |
+              sum(rate(app_requests_total{status=~"5.."}[5m]))
+              / sum(rate(app_requests_total[5m])) > 0.05
+            for: 2m
+            labels: {severity: warning}
+            annotations:
+              summary: "High 5xx error rate on demo-app"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Release.Name }}-prometheus
+  labels:
+    {{- include "obs.labels" . | nindent 4 }}
+    app.kubernetes.io/component: prometheus
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/component: prometheus
+  template:
+    metadata:
+      labels:
+        {{- include "obs.labels" . | nindent 8 }}
+        app.kubernetes.io/component: prometheus
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65534
+        fsGroup: 65534
+        seccompProfile: {type: RuntimeDefault}
+      containers:
+        - name: prometheus
+          image: {{ .Values.prometheus.image }}
+          args:
+            - "--config.file=/etc/prometheus/prometheus.yml"
+            - "--storage.tsdb.path=/prometheus"
+            - "--storage.tsdb.retention.time={{ .Values.prometheus.retention }}"
+          ports:
+            - containerPort: 9090
+          volumeMounts:
+            - name: config
+              mountPath: /etc/prometheus
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities: {drop: ["ALL"]}
+      volumes:
+        - name: config
+          configMap:
+            name: {{ .Release.Name }}-prometheus-config
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Release.Name }}-prometheus
+  labels:
+    {{- include "obs.labels" . | nindent 4 }}
+spec:
+  selector:
+    app.kubernetes.io/component: prometheus
+  ports:
+    - port: {{ .Values.prometheus.service.port }}
+      targetPort: 9090
+      name: http
