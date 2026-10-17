@@ -31,14 +31,18 @@ jobs:
         run: docker compose config --quiet
       - name: promtool check (prometheus.yml + alert rules)
         run: |
-          docker run --rm -v "$PWD/monitoring/prometheus:/etc/prometheus:ro" \
-            prom/prometheus:v3.4.1 promtool check config /etc/prometheus/prometheus.yml
-          docker run --rm -v "$PWD/monitoring/prometheus:/etc/prometheus:ro" \
-            prom/prometheus:v3.4.1 promtool check rules /etc/prometheus/alerts.yml
+          # NOTE: the prom/prometheus image entrypoint is the prometheus binary,
+          # so promtool must be set as the entrypoint (passing it as an argument fails).
+          docker run --rm --entrypoint promtool -v "$PWD/monitoring/prometheus:/etc/prometheus:ro" \
+            prom/prometheus:v3.4.1 check config /etc/prometheus/prometheus.yml
+          docker run --rm --entrypoint promtool -v "$PWD/monitoring/prometheus:/etc/prometheus:ro" \
+            prom/prometheus:v3.4.1 check rules /etc/prometheus/alerts.yml
       - name: amtool check (alertmanager.yml)
         run: |
-          docker run --rm -v "$PWD/monitoring/alertmanager:/etc/alertmanager:ro" \
-            prom/alertmanager:v0.28.1 amtool check-config /etc/alertmanager/alertmanager.yml
+          # Same entrypoint note as promtool: the alertmanager image entrypoint
+          # is the alertmanager binary, so amtool must be the entrypoint.
+          docker run --rm --entrypoint amtool -v "$PWD/monitoring/alertmanager:/etc/alertmanager:ro" \
+            prom/alertmanager:v0.28.1 check-config /etc/alertmanager/alertmanager.yml
       - name: Validate Grafana dashboard JSON
         run: python3 -c "import json; json.load(open('monitoring/grafana/dashboards/app-overview.json'))"
 
