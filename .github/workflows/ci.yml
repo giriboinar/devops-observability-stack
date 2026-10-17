@@ -75,10 +75,13 @@ jobs:
       - uses: docker/setup-qemu-action@v3
       - uses: docker/setup-buildx-action@v3
       - name: Build image
+        # NOTE: load:true uses the docker exporter, which cannot export a
+        # multi-platform manifest list — so the scan build is amd64-only.
+        # The push step below still builds all platforms for the registry.
         uses: docker/build-push-action@v6
         with:
           context: .
-          platforms: linux/amd64,linux/arm64
+          platforms: linux/amd64
           load: true
           tags: demo-app:ci
       - name: Trivy image scan (fail on HIGH/CRITICAL)
