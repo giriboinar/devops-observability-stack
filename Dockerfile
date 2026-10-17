@@ -1,15 +1,17 @@
 # syntax=docker/dockerfile:1
 # Multi-stage build for the instrumented demo API.
-# Base image pinned and verified on Docker Hub (python:3.12-slim-bookworm).
+# Base image pinned and verified on Docker Hub (python:3.12-slim-trixie).
+# Trixie (Debian 13) replaced bookworm on 2026-10-17: the bookworm base carried
+# dozens of HIGH/CRITICAL CVEs with no fixed version available in Debian 12.
 
-FROM python:3.12-slim-bookworm AS builder
+FROM python:3.12-slim-trixie AS builder
 WORKDIR /build
 COPY app/requirements.txt .
 # Install runtime-only deps into a prefix; test-only packages stay out of the image.
 RUN pip install --no-cache-dir --prefix=/install \
     fastapi==0.143.1 uvicorn==0.34.3 prometheus-client==0.21.1 pydantic==2.11.7
 
-FROM python:3.12-slim-bookworm AS runtime
+FROM python:3.12-slim-trixie AS runtime
 # Pull the latest Debian security updates: the base image tag is rebuilt
 # periodically and can lag upstream fixes by days (Trivy gates on HIGH/CRITICAL).
 RUN apt-get update && apt-get upgrade -y && rm -rf /var/lib/apt/lists/*
